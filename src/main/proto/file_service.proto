@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.example.grpc";
+option java_outer_classname = "FileServiceProto";
+
+package fileservice;
+
+// Сервис для сохранения файлов через gRPC
+service FileService {
+  // Унарный RPC - сохранение одного файла
+  rpc SaveFileUnary (SaveFileRequest) returns (SaveFileResponse);
+
+  // Стриминговый RPC - сохранение потока файлов
+  rpc SaveFileStream (stream SaveFileRequest) returns (stream SaveFileResponse);
+
+  // Двунаправленный стриминг
+  rpc SaveFileBidirectional (stream SaveFileRequest) returns (stream SaveFileResponse);
+}
+
+// Запрос на сохранение файла
+message SaveFileRequest {
+  string id = 1;                    // Опциональный ID (если не указан, сгенерируется)
+  string filename = 2;              // Имя файла (если не указано, будет UUID)
+  string content_base64 = 3;        // Содержимое файла в Base64 (до 400KB)
+  string metadata_json = 4;         // Дополнительные метаданные в JSON
+  int64 timestamp = 5;              // Временная метка
+}
+
+// Ответ после сохранения файла
+message SaveFileResponse {
+  bool success = 1;                 // Успешно ли сохранено
+  string message = 2;               // Сообщение об ошибке или успехе
+  string saved_filename = 3;        // Имя сохраненного файла
+  string file_path = 4;             // Полный путь к файлу
+  int64 file_size = 5;              // Размер файла в байтах
+  string saved_at = 6;              // Время сохранения
+}
