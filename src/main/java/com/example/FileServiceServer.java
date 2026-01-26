@@ -25,7 +25,7 @@ public class FileServiceServer extends VerticleBase {
 
   private static final String UPLOAD_DIR = "uploads";
   private static final DateTimeFormatter DATE_FORMATTER =
-    DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss-SSS");
+    DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss-SSSS");
   private static final int MAX_FILE_SIZE = 800 * 1024; // 400KB
   private static final int MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10MB для gRPC сообщений
   private static int GRPC_PORT;
