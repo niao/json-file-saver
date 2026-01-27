@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FileServiceServer extends VerticleBase {
@@ -152,10 +153,13 @@ public class FileServiceServer extends VerticleBase {
       filename = UUID.randomUUID().toString();
     }
 
+    // Добавляем случайное окончание в имя файла
+    int randEnding = ThreadLocalRandom.current().nextInt();
+
     // Добавляем timestamp к имени файла для уникальности
     String timestamp = LocalDateTime.now().format(DATE_FORMATTER);
     String safeFilename = sanitizeFilename(filename);
-    String finalFilename = timestamp + "_" + safeFilename;
+    String finalFilename = timestamp + "_" + safeFilename + randEnding;
 
     // Полный путь к файлу
     Path filePath = Paths.get(UPLOAD_DIR, finalFilename);
