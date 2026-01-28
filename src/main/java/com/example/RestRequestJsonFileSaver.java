@@ -65,6 +65,7 @@ public class RestRequestJsonFileSaver extends VerticleBase {
 
           // Отправляем ответ клиенту
           JsonObject response = new JsonObject()
+            .put("success", true)
             .put("message", "File saved successfully")
             .put("filename", fileName)
             .put("path", filePath.toString());
@@ -80,6 +81,7 @@ public class RestRequestJsonFileSaver extends VerticleBase {
             .setStatusCode(500)
             .putHeader("content-type", "application/json")
             .end(new JsonObject()
+              .put("success", false)
               .put("error", "Failed to save file")
               .encode());
         }
