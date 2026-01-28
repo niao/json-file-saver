@@ -6,10 +6,9 @@
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
         <collectionProp name="Arguments.arguments"/>
       </elementProp>
-      <boolProp name="TestPlan.functional_mode">false</boolProp>
     </TestPlan>
     <hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Thread Group Yarp">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Thread Group Direct">
         <intProp name="ThreadGroup.num_threads">1500</intProp>
         <intProp name="ThreadGroup.ramp_time">3</intProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
@@ -20,32 +19,30 @@
         </elementProp>
       </ThreadGroup>
       <hashTree>
-        <vn.zalopay.benchmark.GRPCSampler guiclass="vn.zalopay.benchmark.GRPCSamplerGui" testclass="vn.zalopay.benchmark.GRPCSampler" testname="GRPC Request YARP">
-          <stringProp name="GRPCSampler.protoFolder">/home/niao/Загрузки/ghz-linux-x86_64</stringProp>
-          <stringProp name="GRPCSampler.libFolder">/home/niao/Загрузки/ghz-linux-x86_64</stringProp>
-          <stringProp name="GRPCSampler.metadata">{&quot;SessionID&quot;: &quot;test-session-1&quot;}</stringProp>
-          <stringProp name="GRPCSampler.host">192.168.232.95</stringProp>
-          <stringProp name="GRPCSampler.port">5010</stringProp>
-          <stringProp name="GRPCSampler.fullMethod">fileservice.FileService/SaveFileUnary</stringProp>
-          <stringProp name="GRPCSampler.deadline">5000</stringProp>
-          <boolProp name="GRPCSampler.tls">false</boolProp>
-          <boolProp name="GRPCSampler.tlsDisableVerification">true</boolProp>
-          <stringProp name="GRPCSampler.channelAwaitTermination">1000</stringProp>
-          <stringProp name="GRPCSampler.maxInboundMessageSize">4194304</stringProp>
-          <stringProp name="GRPCSampler.maxInboundMetadataSize">8192</stringProp>
-          <stringProp name="GRPCSampler.requestJson">{
-  &quot;filename&quot;: &quot;uber-name&quot;,
-  &quot;content_base64&quot;: &quot;aGVsbG8=&quot;,
-  &quot;metadata_json&quot;: &quot;&quot;,
-  &quot;timestamp&quot;: 42
-}
-</stringProp>
-        </vn.zalopay.benchmark.GRPCSampler>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="HTTP Request direct">
+          <stringProp name="HTTPSampler.domain">192.168.232.95</stringProp>
+          <stringProp name="HTTPSampler.port">8888</stringProp>
+          <stringProp name="HTTPSampler.path">/api/Users</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&quot;hey&quot;:&quot;yo&quot;, &quot;two&quot;: 2}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
         <hashTree/>
         <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="JSR223 Assertion" enabled="true">
-          <stringProp name="cacheKey">true</stringProp>
-          <stringProp name="filename"></stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
           <stringProp name="parameters"></stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="cacheKey">true</stringProp>
           <stringProp name="script">import groovy.json.JsonSlurper
 
 // Получаем тело ответа как строку
@@ -64,11 +61,10 @@ if (json.success == true) {
     AssertionResult.setFailureMessage(&apos;&quot;success&quot;: true not found in JSON response&apos;)
 }
 </stringProp>
-          <stringProp name="scriptLanguage">groovy</stringProp>
         </JSR223Assertion>
         <hashTree/>
       </hashTree>
-      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
         <objProp>
           <name>saveConfig</name>
