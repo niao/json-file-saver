@@ -9,10 +9,15 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Base64;
+import java.util.Locale;
 import java.util.UUID;
 
 public class RestRequestJsonFileSaver extends VerticleBase {
@@ -21,6 +26,8 @@ public class RestRequestJsonFileSaver extends VerticleBase {
   private int HTTP_PORT; //= config().getInteger("HTTP_PORT", 8080);
   private int GRPC_PORT; // = config().getInteger("GRPC_PORT");
   private String HTTP_ENDPOINT;
+  private String PACK_FILE_PATH;
+  private String PACK_FILE_MD5;
 
 
   @Override
@@ -28,8 +35,13 @@ public class RestRequestJsonFileSaver extends VerticleBase {
 
     UPLOAD_DIR = config().getString("UPLOAD_DIR");
     HTTP_ENDPOINT = config().getString("HTTP_ENDPOINT", "/");
+    PACK_FILE_PATH = config().getString("PACK_FILE_PATH", "pack.zip");
+    PACK_FILE_MD5 = config().getString("PACK_FILE_MD5", "7bbce66cdc6de3bd07f0798e27dfa262");
     HTTP_PORT = config().getInteger("HTTP_PORT", 8080);
     GRPC_PORT = config().getInteger("GRPC_PORT");
+
+    //Создаем значение "классического" заголовка Content-MD5
+    String contentMd5 = Base64.getEncoder().encodeToString(PACK_FILE_MD5.getBytes());
 
     // Создаем HTTP сервер и роутер
     HttpServer server = vertx.createHttpServer();
@@ -86,7 +98,26 @@ public class RestRequestJsonFileSaver extends VerticleBase {
               .encode());
         }
       });
-
+   router.get("/getpack")
+       .handler( routingContext -> routingContext
+         .response()
+         .putHeader("X-Response-Status", "true")
+         .putHeader("Content-MD5", contentMd5)
+         .putHeader("X-File-MD5", PACK_FILE_MD5)
+         .sendFile(PACK_FILE_PATH)
+         .onFailure(err -> {
+           System.err.println("Ошибка отправки файла: " + PACK_FILE_PATH.toString() + " "+ err.getMessage());
+           if (!routingContext.response().ended()) {
+             routingContext.response()
+               .setStatusCode(err instanceof FileNotFoundException ? 404 : 500)
+               .putHeader("Content-Type", "application/json; charset=UTF-8")
+               .putHeader("X-Response-Status", "false")
+               .end(new JsonObject()
+                 .put("success", false)
+                 .put("error", "Failed to file access: " + err.getMessage())
+                 .encode());
+           }
+         }));
     // Информационная страница
     router.get("/")
       .handler(routingContext -> {
