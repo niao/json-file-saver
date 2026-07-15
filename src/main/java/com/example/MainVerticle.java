@@ -10,19 +10,39 @@ import java.nio.file.Paths;
 
 public class MainVerticle extends VerticleBase {
 
-  private static final String UPLOAD_DIR = "uploads/";
-  private static final int HTTP_PORT = 8888;
-  private static final int GRPC_PORT = 50051;
-  private static final String HTTP_ENDPOINT = "/api/Users";
+   // Значения по умолчанию
+  private static final String DEFAULT_UPLOAD_DIR = "uploads/";
+  private static final int DEFAULT_HTTP_PORT = 8888;
+  private static final int DEFAULT_GRPC_PORT = 50051;
+  private static final String DEFAULT_HTTP_ENDPOINTS = "/api/Users,/api/v1/vertx-stream";
+  private static final String DEFAULT_PREFIX = "/";
+  private static final String DEFAULT_STORAGE_DIR = "";
+
+
+    // Получаем значения из ENV или используем дефолтные
+    private final String STORAGE_DIR = System.getenv("STORAGE_DIR") != null ?
+      System.getenv("STORAGE_DIR").endsWith("/") ? System.getenv("STORAGE_DIR") : System.getenv("STORAGE_DIR") + "/" :
+      DEFAULT_STORAGE_DIR;
+
+  private final String UPLOAD_DIR = System.getenv("UPLOAD_DIR") != null ?
+      System.getenv("UPLOAD_DIR").endsWith("/") ? STORAGE_DIR+System.getenv("UPLOAD_DIR") : STORAGE_DIR+System.getenv("UPLOAD_DIR") + "/" :
+    STORAGE_DIR+DEFAULT_UPLOAD_DIR;
+
+  private final int HTTP_PORT = Integer.parseInt(System.getenv().getOrDefault("HTTP_PORT", String.valueOf(DEFAULT_HTTP_PORT)));
+  private final int GRPC_PORT = Integer.parseInt(System.getenv().getOrDefault("GRPC_PORT", String.valueOf(DEFAULT_GRPC_PORT)));
+  private final String HTTP_ENDPOINTS = System.getenv().getOrDefault("HTTP_ENDPOINT", DEFAULT_HTTP_ENDPOINTS);
+  private final String PREFIX = System.getenv().getOrDefault("PREFIX", DEFAULT_PREFIX);
 
   @Override
   public Future<?> start() throws Exception {
 
     DeploymentOptions httpDeploymentOptions = new DeploymentOptions().setConfig(new JsonObject()
       .put("UPLOAD_DIR",UPLOAD_DIR)
+      .put("STORAGE_DIR",STORAGE_DIR)
       .put("GRPC_PORT", GRPC_PORT)
       .put("HTTP_PORT", HTTP_PORT)
-      .put("HTTP_ENDPOINT",HTTP_ENDPOINT));
+      .put("HTTP_ENDPOINT", HTTP_ENDPOINTS)
+      .put("PREFIX", PREFIX));
 
     DeploymentOptions grpcDeploymentOptions = new DeploymentOptions().setConfig(new JsonObject()
       .put("UPLOAD_DIR",UPLOAD_DIR)
@@ -44,6 +64,10 @@ public class MainVerticle extends VerticleBase {
           System.out.println("Both HTTP and gRPC servers started successfully!");
           System.out.println("HTTP Server: http://localhost:" + HTTP_PORT);
           System.out.println("gRPC Server: localhost:" + GRPC_PORT);
+          System.out.println("Registered endpoints: " + HTTP_ENDPOINTS);
+          System.out.println("Info page prefix: " + PREFIX);
+        } else {
+          System.err.println("Failed to start servers: " + ar.cause().getMessage());
         }
       });
   }

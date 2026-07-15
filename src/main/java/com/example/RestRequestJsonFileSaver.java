@@ -1,162 +1,78 @@
 package com.example;
 
+import com.example.config.ServiceConfig;
+import com.example.handler.admin.FilesDeleteHandler;
+import com.example.handler.admin.FilesListHandler;
+import com.example.handler.admin.InfoHandler;
+import com.example.handler.rest.JsonSaveHandler;
+import com.example.handler.storage.GetPackHandler;
+import com.example.handler.storage.SetMd5Handler;
+import com.example.handler.storage.SetPackHandler;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.VerticleBase;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Base64;
-import java.util.Locale;
-import java.util.UUID;
-
 public class RestRequestJsonFileSaver extends VerticleBase {
 
-  private String UPLOAD_DIR; //= config().getString("UPLOAD_DIR");
-  private int HTTP_PORT; //= config().getInteger("HTTP_PORT", 8080);
-  private int GRPC_PORT; // = config().getInteger("GRPC_PORT");
-  private String HTTP_ENDPOINT;
-  private String PACK_FILE_PATH;
-  private String PACK_FILE_MD5;
-
+  private ServiceConfig config;
+  private SetMd5Handler setMd5Handler;
 
   @Override
   public Future<?> start() throws Exception {
+    config = new ServiceConfig(config());
 
-    UPLOAD_DIR = config().getString("UPLOAD_DIR");
-    HTTP_ENDPOINT = config().getString("HTTP_ENDPOINT", "/");
-    PACK_FILE_PATH = config().getString("PACK_FILE_PATH", "pack.zip");
-    PACK_FILE_MD5 = config().getString("PACK_FILE_MD5", "7bbce66cdc6de3bd07f0798e27dfa262");
-    HTTP_PORT = config().getInteger("HTTP_PORT", 8080);
-    GRPC_PORT = config().getInteger("GRPC_PORT");
 
-    //Создаем значение "классического" заголовка Content-MD5
-    String contentMd5 = Base64.getEncoder().encodeToString(PACK_FILE_MD5.getBytes());
+    // Создаем обработчик MD5 с возможностью обновления
+    setMd5Handler = new SetMd5Handler(
+      config.getStorageDir(),
+      config.getPackFilePath(),
+      config.getPackFileMd5(),
+      config::setPackFileMd5
+    );
 
-    // Создаем HTTP сервер и роутер
     HttpServer server = vertx.createHttpServer();
     Router router = Router.router(vertx);
 
+    GetPackHandler getPackHandler = new GetPackHandler(config.getAbsolutePackPath(), config::getPackFileMd5);
+
+
     // Добавляем обработчик тела запроса
-    router.route().handler(BodyHandler.create());
+//    router.route().consumes("application/json").handler(BodyHandler.create());
+    // Только для нужных POST
+    for (String ep : config.getHttpEndpoints()) {
+      router.route(HttpMethod.POST, ep).handler(BodyHandler.create());
+      router.post(ep).handler(new JsonSaveHandler(config.getUploadDir()));
+    }
 
-    // Обработчик POST запросов на корневой путь
-    router.post(HTTP_ENDPOINT)
-      .handler(routingContext -> {
-        try {
-          // Получаем тело запроса как JSON
-          JsonObject requestBody = routingContext.body().asJsonObject();
+    String p = config.getPrefix();
+    if (!p.endsWith("/")) p += "/";
 
-          if (requestBody == null) {
-            routingContext.response()
-              .setStatusCode(400)
-              .putHeader("content-type", "application/json")
-              .end(new JsonObject()
-                .put("error", "Request body must be JSON")
-                .encode());
-            return;
-          }
+    // Admin
+    router.get(p).handler(new InfoHandler(config.getUploadDir(), config.getHttpPort(), config.getGrpcPort(), config.getHttpEndpoints()));
+    // Admin: управление файлами
+    router.get(p + "files").handler(new FilesListHandler(config.getUploadDir()));
+    router.delete(p + "files").handler(new FilesDeleteHandler(config.getUploadDir()));
+    // Storage
+    router.get(p + "getpack").handler(getPackHandler);
+    router.get(p + "setmd5").handler(setMd5Handler);
+    router.get(p + "setmd5/:md5").handler(setMd5Handler);
 
-          // Генерируем UUID для имени файла
-          String fileName = UUID.randomUUID().toString() + ".json";
-          Path filePath = Paths.get(UPLOAD_DIR + fileName);
+    // Storage: загрузка pack.zip
+    router.post(p + "setpack").handler(new SetPackHandler(
+      config.getStorageDir(),
+      config.getPackFilePath(),
+      config::setPackFileMd5  // ← теперь обновляет центральное состояние
+    ));
 
-          // Сохраняем JSON в файл
-          String jsonString = requestBody.encodePrettily(); // Красивое форматирование
-          Files.writeString(filePath, jsonString);
 
-          // Отправляем ответ клиенту
-          JsonObject response = new JsonObject()
-            .put("success", true)
-            .put("message", "File saved successfully")
-            .put("filename", fileName)
-            .put("path", filePath.toString());
-
-          routingContext.response()
-            .setStatusCode(200)
-            .putHeader("content-type", "application/json")
-            .end(response.encode());
-
-        } catch (IOException e) {
-          System.err.println("Error saving file: " + e.getMessage());
-          routingContext.response()
-            .setStatusCode(500)
-            .putHeader("content-type", "application/json")
-            .end(new JsonObject()
-              .put("success", false)
-              .put("error", "Failed to save file")
-              .encode());
-        }
-      });
-   router.get("/getpack")
-       .handler( routingContext -> routingContext
-         .response()
-         .putHeader("X-Response-Status", "true")
-         .putHeader("Content-MD5", contentMd5)
-         .putHeader("X-File-MD5", PACK_FILE_MD5)
-         .sendFile(PACK_FILE_PATH)
-         .onFailure(err -> {
-           System.err.println("Ошибка отправки файла: " + PACK_FILE_PATH.toString() + " "+ err.getMessage());
-           if (!routingContext.response().ended()) {
-             routingContext.response()
-               .setStatusCode(err instanceof FileNotFoundException ? 404 : 500)
-               .putHeader("Content-Type", "application/json; charset=UTF-8")
-               .putHeader("X-Response-Status", "false")
-               .end(new JsonObject()
-                 .put("success", false)
-                 .put("error", "Failed to file access: " + err.getMessage())
-                 .encode());
-           }
-         }));
-    // Информационная страница
-    router.get("/")
-      .handler(routingContext -> {
-        JsonObject response = new JsonObject()
-          .put("service", "File Saver Service")
-          .put("http_port", HTTP_PORT)
-          .put("grpc_port", GRPC_PORT)
-          .put("endpoints", new JsonObject()
-            .put("POST "+HTTP_ENDPOINT, "Save JSON to file")
-            .put("gRPC", new JsonObject()
-              .put("SaveFileUnary", "Unary RPC call")
-              .put("SaveFileStream", "Server streaming")
-              .put("SaveFileBidirectional", "Bidirectional streaming")));
-
-        routingContext.response()
-          .putHeader("content-type", "application/json")
-          .end(response.encode());
-      });
-
-    // Запускаем сервер
     return server.requestHandler(router)
-      .listen(HTTP_PORT)
-      .onSuccess(handle->{
-        System.out.println("HTTP/REST Server started on port " + HTTP_PORT);
-        System.out.println("Upload directory: " + Paths.get(UPLOAD_DIR).toAbsolutePath());
-      }).onFailure(handle-> {
-        System.out.println("HTTP/REST Sever fail with: " + handle.getMessage());
-      });
+      .listen(config.getHttpPort())
+      .onSuccess(s -> System.out.println("HTTP Server started on port " + config.getHttpPort()))
+      .onFailure(t -> System.err.println("HTTP Server failed: " + t.getMessage()));
   }
 
-
-//  public static void main(String[] args) {
-//    Vertx vertx = Vertx.vertx();
-//    vertx.deployVerticle(new JsonFileSaver(), res -> {
-//      if (res.succeeded()) {
-//        System.out.println("Application deployed successfully!");
-//      } else {
-//        System.err.println("Failed to deploy application: " + res.cause());
-//      }
-//    });
-//  }
 }
